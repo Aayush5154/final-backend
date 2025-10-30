@@ -10,5 +10,5 @@ const connectDB = async () => {
         process.exit(1) // ye application kisi process pe chal rahi hogi vaha se exit kara denge
     }
 }
-
+// ya to ese karlo nahi to promise ke baad .then, .catch() kar sakte ho
 export default connectDB
