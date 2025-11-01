@@ -19,4 +19,13 @@ app.use(express.urlencoded({extended : true, limit: "16kb"}))// by using the ext
 app.use(express.static("public")) // kuch assest jeke files, images unhe yaha store karate hain
 app.use(cookieParser()) // it manages the secure cookies in the user browser  
 
+//routes import (segregation)
+import userRouter from "./routes/user.routes.js"
+
+//routes declaration
+// app.get (ye pehle karte the jabtak router import nahi kiya tha ab router ko alg ker diya h to usko laane ke middleware laana padega)
+app.use("/api/v1/user", userRouter) // jab bhi koi /user type karega to ham use controol de denge userRouter ka (userRouter user routes file me jaayega) control pass karega
+// /user ek tarah se aapka prefix ki tarah use hota hain like :-
+// http://localhost:8000/api/v1/user/register reoute to jo routes me define kiye h vahi honge 
+
 export { app }

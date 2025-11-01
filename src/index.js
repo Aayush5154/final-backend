@@ -3,8 +3,8 @@ import dotenv from "dotenv" //sabse pehle dotenv import karte hain as jese hi pe
 import connectDB from "./db/index.js";
 // import mongoose from "mongoose";
 // import {DB_NAME} from "./contants"
-import express from "express"
-const app = express()
+import { app } from "./app.js"
+
 dotenv.config({
     path: './.env'
 })

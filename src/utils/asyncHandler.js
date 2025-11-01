@@ -1,9 +1,9 @@
-const asyncHandler = (requestHandler) => {(req, res, next) => {
+const asyncHandler = (requestHandler) => {return (req, res, next) => {
         Promise.resolve(requestHandler(req, res,next)).catch((err) => next(err))
     }
 }
 
-// chapter 8 part 2
+// chapter 8 part 
 export {asyncHandler}
 
 // const asyncHandler = () => {}
