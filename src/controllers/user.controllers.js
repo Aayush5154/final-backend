@@ -1,11 +1,99 @@
 import {asyncHandler} from "../utils/asyncHandler.js"
+import { ApiError } from "../utils/ApiError.js"
+import { User } from "../models/user.models.js"
+import { uploadOnCloudinary } from "../utils/cloudinary.js"
+import { upload } from "../middlewares/multer.middleware.js"
+import { ApiResponse } from "../utils/ApiResponse.js"
 
 const registerUser = asyncHandler(async (req, res) => {
-    res.status(200).json({
-        success: true,
-        message : "ok"
-    })// just like res.send
-})
+    // get user details from frontend 
+    // validation - not empty 
+    // check if user already exists : username and email
+    // check for images, check for avatar 
+    // if available upload them on cloudinary 
+    // create user object - create entry in db 
+    // remove password and refresh token field from response 
+    // check for user creation
+    // return response 
+
+
+    const {fullname, username, email, password} = req.body
+    console.log("email", email); 
+    // if(fullname === ""){
+    //     throw new ApiError(400, "fullname is required")
+    // } //ese karke saare check kar sakte ho another method 
+    if (
+        [fullname, email, username, password].some((field) => 
+            field?.trim() == "" )
+    ){
+        throw new ApiError(400, "All fiels are compulsary or required") // Api error ka obkect bana liya 
+    } // 2 tasks are done 
+    // ab ham apne iccha se validation laga sakte h jese email me @ h ki nahi like string @ include karta h ki nahi 
+
+    // check if user already exists : username and email
+    const existedUser = User.findOne({
+        $or : [{ username }, { email }]
+     })// findOne is used to find the first user   
+     // Hamne directly User jo ki ek model h database me usse hi puch liya ki does these exists 
+     // and $or ke thorugh multiple checks le sakte hain
+
+    if(existedUser) {
+        throw new ApiError(409, "User with email or username already exists!")
+     }
+
+     // check for images, check for avatar 
+    //  1️⃣ req.files
+    // When you send files (like images) from the frontend — for example through a form using multipart/form-data — the middleware multer handles them and attaches them to the request object (req).
+    const avatarLocalPath = req.files?.avatar[0]?.path;
+    const coverImageLocalPath = req.files?.coverImage[0]?.path; // isse local path milega jaha ovver image uplaoded hain on our server 
+    // 2️⃣ req.files?.avatar
+    // The ?. is optional chaining — it means “only try to access this if it exists”.
+    // So req.files?.avatar means:
+    // “If req.files exists, get the property avatar, otherwise return undefined.”
+    // This helps prevent errors like
+    // Cannot read properties of undefined (reading 'avatar')
+    //  So req.files.avatar[0] means the first uploaded file under the field name avatar.
+    // So req.files.avatar[0].path gives the file path on your server (where multer temporarily stored the uploaded file).
+    if(!avatarLocalPath){
+        throw new ApiError(400, "Avatar File is required!")
+    }
+    // Cover Image mandatory nahi hain
+
+    // Now upload them to cloudinary 
+    // already exported and configured hain
+    const avatar = await uploadOnCloudinary(avatarLocalPath)// upload hone ke baad ref milega cloudinary se url milega response me 
+    if(coverImageLocalPath){
+     const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+    }
+    if(!avatar){
+        throw new ApiError(400, "Avata File is required")
+    }
+    // Now lets go 
+    // create user object - create entry in db 
+    const user = User.create({
+        fullname,
+        avatar : avatar.url,
+        coverImage : coverImage?.url || "", // if coverImage h tabhi to url 
+        email,
+        password,
+        username : username.toLowerCase()
+    })
+    //Now lets remove password and refresh token field from response
+    const createdUser = await User.findById(user._id).select(
+        "-password -refreshToken"
+    )// agr aapko findbyid se user mila h to chain karke select kar sakte ho .select method karke isme string pass karte h jo jo hame nahi chaiye unka naam likhke 
+
+    // check for user creation
+    if(!createdUser){
+        throw new ApiError(500, "Somethong went wrong while registering the user")
+    }
+    // return response 
+    
+    return res.status(201).json(
+        new ApiResponse(201, createdUser, "User registered successfully")
+    )
+
+}) // form or direct data recieve
 
 // next step is creating the route (ye methods kab run honge)
 export {registerUser}

@@ -51,7 +51,7 @@ const userSchema = new mongoose.Schema(
 
 userSchema.pre("save", async function (next) { // pre is a hook     
     if(!this.isModified("password")) return // this.isModifies hame ye method yaha inbuilt milta hain 
-    this.password = await bcrypt.hash(this.password, 10) // 10 to np of rounds hain
+    this.password = await bcrypt.hash(this.password, 10) // 10 to no. of rounds hain
     next()
 })//save ek middleware hain
 //jis tarah se middlewares bana sakte h us tarah se hi custom method design kar sakte hain 
