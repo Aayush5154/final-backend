@@ -2,7 +2,6 @@ import {asyncHandler} from "../utils/asyncHandler.js"
 import { ApiError } from "../utils/ApiError.js"
 import { User } from "../models/user.models.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
-import { upload } from "../middlewares/multer.middleware.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 
 const registerUser = asyncHandler(async (req, res) => {
@@ -29,11 +28,16 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(400, "All fiels are compulsary or required") // Api error ka obkect bana liya 
     } // 2 tasks are done 
     // ab ham apne iccha se validation laga sakte h jese email me @ h ki nahi like string @ include karta h ki nahi 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        throw new ApiError(400, "Invalid email format");
+    }
 
     // check if user already exists : username and email
-    const existedUser = User.findOne({
-        $or : [{ username }, { email }]
-     })// findOne is used to find the first user   
+    const existedUser = await User.findOne({
+        $or: [{ username }, { email }]
+    });
+// findOne is used to find the first user   
      // Hamne directly User jo ki ek model h database me usse hi puch liya ki does these exists 
      // and $or ke thorugh multiple checks le sakte hain
 
@@ -44,8 +48,8 @@ const registerUser = asyncHandler(async (req, res) => {
      // check for images, check for avatar 
     //  1️⃣ req.files
     // When you send files (like images) from the frontend — for example through a form using multipart/form-data — the middleware multer handles them and attaches them to the request object (req).
-    const avatarLocalPath = req.files?.avatar[0]?.path;
-    const coverImageLocalPath = req.files?.coverImage[0]?.path; // isse local path milega jaha ovver image uplaoded hain on our server 
+    const avatarLocalPath = req.files?.avatar?.[0]?.path;
+    const coverImageLocalPath = req.files?.coverImage?.[0]?.path; // isse local path milega jaha ovver image uplaoded hain on our server 
     // 2️⃣ req.files?.avatar
     // The ?. is optional chaining — it means “only try to access this if it exists”.
     // So req.files?.avatar means:
@@ -62,22 +66,22 @@ const registerUser = asyncHandler(async (req, res) => {
     // Now upload them to cloudinary 
     // already exported and configured hain
     const avatar = await uploadOnCloudinary(avatarLocalPath)// upload hone ke baad ref milega cloudinary se url milega response me 
-    if(coverImageLocalPath){
-     const coverImage = await uploadOnCloudinary(coverImageLocalPath)
-    }
+    const coverImage = coverImageLocalPath ? await uploadOnCloudinary(coverImageLocalPath) : null;
+    //better approach
     if(!avatar){
-        throw new ApiError(400, "Avata File is required")
+        throw new ApiError(400, "Avatar File is required")
     }
     // Now lets go 
     // create user object - create entry in db 
-    const user = User.create({
+    const user = await User.create({
         fullname,
-        avatar : avatar.url,
-        coverImage : coverImage?.url || "", // if coverImage h tabhi to url 
+        avatar: avatar.url,
+        coverImage: coverImage?.url || "",
         email,
         password,
-        username : username.toLowerCase()
-    })
+        username: username.toLowerCase()
+    });
+
     //Now lets remove password and refresh token field from response
     const createdUser = await User.findById(user._id).select(
         "-password -refreshToken"
@@ -85,7 +89,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
     // check for user creation
     if(!createdUser){
-        throw new ApiError(500, "Somethong went wrong while registering the user")
+       throw new ApiError(400, "All fields are compulsory or required")
     }
     // return response 
     
