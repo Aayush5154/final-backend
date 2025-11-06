@@ -1,4 +1,4 @@
-import mongoose, {Schema, SchemaTypes} from "mongoose";
+import mongoose, {Schema} from "mongoose";
 import jwt from "jsonwebtoken"
 import bcrypt from "bcrypt"
 
@@ -56,14 +56,14 @@ userSchema.pre("save", async function (next) { // pre is a hook
 })//save ek middleware hain
 //jis tarah se middlewares bana sakte h us tarah se hi custom method design kar sakte hain 
 userSchema.methods.isPasswordCorrect = async function (password) {
-    // bcrypt library aapka password check kar sakti h to simultaneoulsy check bhi kar sakti hain
+    // bcrypt library aapka password encrypt kar sakti h to simultaneoulsy check bhi kar sakti hain
     return await bcrypt.compare(password, this.password) // pehla password to jo user bhej rha h and dusra this.password jo database me store hain to ye un dono to compare ker ke response deta hain and return value boolen aati hain true or false me
 }  
 
 userSchema.methods.generateAccessToken = function(){
      return jwt.sign(
         {
-            _id : this._id,
+            _id : this._id, // ye baad me kaam aayge auth.middlewares.js me 
             email : this.email, 
             username : this.username,
             fullname : this.fullname 

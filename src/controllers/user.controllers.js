@@ -3,6 +3,24 @@ import { ApiError } from "../utils/ApiError.js"
 import { User } from "../models/user.models.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
+import jwt from "jsonwebtoken"
+
+const generateAccessAndRefreshTokenss = async (userId) => {
+    // user ke through we can easily get user_id 
+    try {
+      const user = await User.findById(userId)
+      const accessToken = user.generateAccessToken()
+      const refreshToken = user.generateRefreshToken()
+
+      user.refreshToken = refreshToken
+      await user.save({ validateBeforeSave : false })//refrsh token ko baceknd me save kara diya
+
+      return {accessToken, refreshToken}
+
+    }catch (error){
+     throw new ApiError(500, "something went wrong while generating refrsh and access token")
+    }
+}
 
 const registerUser = asyncHandler(async (req, res) => {
     // get user details from frontend 
@@ -25,8 +43,9 @@ const registerUser = asyncHandler(async (req, res) => {
         [fullname, email, username, password].some((field) => 
             field?.trim() == "" )
     ){
-        throw new ApiError(400, "All fiels are compulsary or required") // Api error ka obkect bana liya 
+        throw new ApiError(400, "All fiels are compulsary or required") // Api error ka object bana liya 
     } // 2 tasks are done 
+
     // ab ham apne iccha se validation laga sakte h jese email me @ h ki nahi like string @ include karta h ki nahi 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -37,7 +56,8 @@ const registerUser = asyncHandler(async (req, res) => {
     const existedUser = await User.findOne({
         $or: [{ username }, { email }]
     });
-// findOne is used to find the first user   
+     
+    // findOne is used to find the first user   
      // Hamne directly User jo ki ek model h database me usse hi puch liya ki does these exists 
      // and $or ke thorugh multiple checks le sakte hain
 
@@ -98,7 +118,148 @@ const registerUser = asyncHandler(async (req, res) => {
     )
 
 }) // form or direct data recieve
+const loginUser = asyncHandler(async(req, res) => {
+     // req body -> data
+     // check for username or email(kisi bhi ek ko check karlo)
+     // find the user 
+     // if not then tell u are not 
+     // if yes then ->
+     // password check 
+     // generate access and refresh token 
+     // send cookie 
+
+     const {username, email, password} = req.body
+
+     if(!username && !email){ //if both are misssing then only 
+        throw new ApiError(400, "Username or email is required!")
+     }
+
+     // finding the user 
+
+     const user = await User.findOne({
+        $or: [{username}, {email}]
+     })
+
+     if(!user){
+        throw new ApiError(404, "User does not exits")
+     }
+
+     // check for password (user model me method h already ispassword correct naam ka)
+     // User ke pass mongoose se jo method milte h vo hain whereas user ek instance hame mila h jo hamne databse se liya hain
+     const ispasswordValid = await user.isPasswordCorrect(password)
+     if(!ispasswordValid){
+        throw new ApiError(401, "Invalid user credentials")
+     }
+     // generate access and refresh token 
+     const {accessToken, refreshToken} = await generateAccessAndRefreshTokenss(user._id) 
+
+     //NOW WE DONT WANT KI USER KO PASSWORD AND REFRESH TOKEN MILE 
+     const logidInUser = await User.findById(user._id).select("-password -refreshToken")
+
+     // send cookie 
+     const options = {
+        httpOnly : true,
+        secure : true, // by doing these cookies are only modified by the server not by the frontend 
+     }
+
+     return res
+     .status(200)
+     .cookie("accessToken", accessToken, options)
+     .cookie("refreshToken", refreshToken, options)
+     .json(
+        new ApiResponse(
+            200, 
+            {
+                user : logidInUser, 
+                // accessToken, 
+                // refreshToken //  may be they are not required hamne ccokies me already set ker liye hain as ..
+            },
+            "User logged in successfully"
+        )
+     )
+     
+})
+
+
+const logoutUser = asyncHandler(async(req, res) => {
+ // now to baat ab esi h ki pehle to frontend se email, username aa rha ha to hamne req.body se user ko access kar liye tha and then database se findout kar liya tha but now ab vese to kar nahi sakte nahi to koi bhi fhir durse usert ko logout kar dega isliye yaha kaam aata h middleware jo ki ham apna custom create kar sakte hain.
+ // as jese hi aapne middleware cookie call kiya kia to aap res.cookie kar sakte the similarly req.cookie bhi kar sakte ho to vaha se user ka access mil sakta h req.cookie like this 
+ // lets create the middleware of the auth jo ki verify karega ki user h ki nahi 
+
+ //Now we have the access of req.user
+//  req.user._id
+
+User.findByIdAndUpdate(
+    await req.user._id,
+    {
+        $set : {
+            refreshToken : undefined
+            },
+    },   {
+            new : true
+        }
+    )
+
+    const options = {
+        httpOnly : true,
+        secure : true, // by doing these cookies are only modified by the server not by the frontend 
+     }
+
+     return res
+     .status(200)
+     .clearCookie("accessToken", options)
+     .clearCookie("refreshToken", options)
+     .json(new ApiResponse(200, {}, "User logged Out"))
+
+})
+
+const refreshAceessToken = asyncHandler(async(req, res) => {
+    const incomingrefreshToken =  req.cookies.refreshToken || req.body.refreshToken
+    if(!refreshAceessToken) {
+        throw new ApiError(401, "Unauthorized request!")
+    }
+    try {
+        const decodedToken = jwt.verify(incomingrefreshToken, process.env.REFRESH_TOKEN_SECRET)
+        
+        const user = await User.findById(decodedToken?._id) // Now u have the access of the user 
+        if(!user){
+            throw new ApiError(401, "Invalid refresh token")
+        }
+    
+        if(incomingrefreshToken !== user._id){
+            throw new ApiError(401, "Refresh token is expired or used")
+        }
+    
+        // Now ab to naya generate karlo
+        const options = {
+            httpOnly : true,
+            secure : true
+        }
+    
+        const {accessToken, newrefreshToken} =  await generateAccessAndRefreshTokenss(user._id)   
+    
+        return res 
+        .status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", newrefreshToken, options)
+        .json(
+            new ApiResponse(
+                200, 
+                {accessToken, refreshToken : newrefreshToken}, 
+                "Accessed token refreshed successfully "
+            )
+        )
+    } catch (error) {
+        throw new ApiError(401, error?.message || "Invalid refresh Token")
+    }
+
+    
+})
 
 // next step is creating the route (ye methods kab run honge)
-export {registerUser}
+export {registerUser,
+    loginUser,
+    logoutUser,
+    refreshAceessToken
+}
 
