@@ -4,6 +4,7 @@ import { User } from "../models/user.models.js" // for to check ki user already 
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import jwt from "jsonwebtoken"
+import { response } from "express"
 
 const generateAccessAndRefreshTokenss = async (userId) => {
     // user ke through we can easily get user_id 
@@ -259,10 +260,130 @@ const refreshAceessToken = asyncHandler(async(req, res) => {
     
 })
 
+const changeCurrentPassword = asyncHandler(async(req, res) => {
+
+    const {oldPassword, newPassword} = req.body
+    // const {oldPassword, newPassword, confirmPassword} = req.body
+
+    // if(!(newPassword == confirmPassword)){
+    //     throw new ApiError(400, "Invalid match")
+    // } // this process can be done in the frontend part easily so we will do it later
+
+    const user = await User.findById(req.user?._id)
+
+    const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+
+    if(!isPasswordCorrect){
+        throw new ApiError(400, "Invalid old password")
+    }
+
+    user.password = newPassword
+    await user.save({validateBeforeSave: false})
+
+    return response
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password changed Successfully"))
+
+
+})
+
+const getCurrentUser = asyncHandler(async(req, res) => {
+    return res.status(200)
+    .json(200, req.user, "current user fetched successfully")
+})
+
+const updateAccountDetails = asyncHandler(async(req, res) => {
+
+    const {fullname, email, username} = req.body
+
+    if(!fullname || !email || !username){
+        throw new ApiError(400, "All fields are required")
+    }
+
+    const user = User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                fullname : fullname,
+                email : email
+            }
+        },
+        {new : true}
+
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Account details updated successfully"))
+
+})// it will be more better to make the different controllers for to do these tasks of updating kyuki pura user dubara save karne ki jarurat nahi hain vahi ke vahi ho jayega
+
+const updateUserAvatar = asyncHandler(async(req, res) => {
+
+    const avatarLocalPath = req.file?.path
+
+    if(!avatarLocalPath){
+        throw new ApiError(400, "Avatar file is missing")
+    }
+
+    const avatar = await uploadOnCloudinary(avatarLocalPath)
+
+    if(!avatar.url){
+        throw new ApiError(400, "Error while uploading on avatar")
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {    $set:{
+                avatar : avatar.url
+            },
+        },
+        {new : true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Avatar Image updated successfully"))
+})
+
+const updateUserCoverImage = asyncHandler(async(req, res) => {
+
+    const coverImageLocalPath = req.files?.path
+
+    if(!coverImageLocalPath){
+        throw new ApiError(400, "Cover image file is missing")
+    }
+
+    const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+
+    if(!coverImage,url){
+        throw new ApiError(400, "Error in uploading")
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                coverImage : coverImage.url
+            }
+        },
+        {new : true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Cover Image updated successfully"))
+})
+
 // next step is creating the route (ye methods kab run honge)
 export {registerUser,
     loginUser,
     logoutUser,
-    refreshAceessToken
+    refreshAceessToken,
+    changeCurrentPassword,
+    getCurrentUser,
+    updateAccountDetails,
+    updateUserAvatar,
+    updateUserCoverImage
 }
 
