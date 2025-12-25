@@ -50,7 +50,7 @@ const userSchema = new mongoose.Schema(
 )
 
 userSchema.pre("save", async function (next) { // pre is a hook     
-    if(!this.isModified("password")) return // this.isModifies hame ye method yaha inbuilt milta hain 
+    if(!this.isModified("password")) return // this.isModified hame ye method yaha inbuilt milta hain 
     this.password = await bcrypt.hash(this.password, 10) // 10 to no. of rounds hain
     next()
 })//save ek middleware hain
@@ -62,6 +62,7 @@ userSchema.methods.isPasswordCorrect = async function (password) {
 
 userSchema.methods.generateAccessToken = function(){
      return jwt.sign(
+        // jwt.sign(data, secret, { expiresIn }) eese lilkhna hota hain 
         {
             _id : this._id, // ye baad me kaam aayge auth.middlewares.js me 
             email : this.email, 
@@ -73,8 +74,10 @@ userSchema.methods.generateAccessToken = function(){
             expiresIn : process.env.ACCESS_TOKEN_EXPIRY // expireIn in built milta hain 
         }
      )
-}
-userSchema.methods.generateRefreshToken = function(){
+}   
+// jese jab tun login kargore to jo froned se request aayi login method chala whatever... then usme hamne user.generteAccesstoken kiya tha to user ki detail vaha se mili to vo method se ye function run hoga to jese jwt ko ko ek server mano jo apne db me tumhara ye data store karega + tumhara process.env se token rakhega and expiry date rakhega then tumhe ek token dega.
+// Now jese ab tum logout karoge to auth.middleware.js me mene cookies se access token uthaya now vaha se user token mila then mene jwt.verify method call kiya usme ek token jo cookies se aaya vo and mera process.env ka token diya ab jwt apne server pe varify karega ki ye mathced h ki nahi if yes then response me decoded info dega jisse tumhe user ka _id milege and then tum pure user ko db me dhund sakte ho and response me req.user me insert kar denga ab tumhare pass logout karte time bhi user ka access and verification hain.
+userSchema.methods.generateRefreshToken = function(){ // refresh token ka kaan sirf naya access token bananaa hota ha 
     return jwt.sign(
         {
             _id : this._id,

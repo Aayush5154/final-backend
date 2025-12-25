@@ -1,6 +1,6 @@
 import {asyncHandler} from "../utils/asyncHandler.js"
 import { ApiError } from "../utils/ApiError.js"
-import { User } from "../models/user.models.js"
+import { User } from "../models/user.models.js" // for to check ki user already exits 
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import jwt from "jsonwebtoken"
@@ -13,12 +13,12 @@ const generateAccessAndRefreshTokenss = async (userId) => {
       const refreshToken = user.generateRefreshToken()
 
       user.refreshToken = refreshToken
-      await user.save({ validateBeforeSave : false })//refrsh token ko baceknd me save kara diya
+      await user.save({ validateBeforeSave : false })//refresh token ko baceknd me save kara diya
 
       return {accessToken, refreshToken}
 
     }catch (error){
-     throw new ApiError(500, "something went wrong while generating refrsh and access token")
+     throw new ApiError(500, "something went wrong while generating refresh and access token")
     }
 }
 
@@ -29,19 +29,19 @@ const registerUser = asyncHandler(async (req, res) => {
     // check for images, check for avatar 
     // if available upload them on cloudinary 
     // create user object - create entry in db 
-    // remove password and refresh token field from response 
+    // remove password and refresh token field from response taki user tak naa pahuche 
     // check for user creation
     // return response 
 
 
-    const {fullname, username, email, password} = req.body
-    console.log("email", email); 
+    const {fullname, username, email, password} = req.body // froms and json data are present in req.body
+    console.log("email: ", email); 
     // if(fullname === ""){
     //     throw new ApiError(400, "fullname is required")
     // } //ese karke saare check kar sakte ho another method 
     if (
         [fullname, email, username, password].some((field) => 
-            field?.trim() == "" )
+            field?.trim() == "" )// ek bhi empty hoga to true return karega 
     ){
         throw new ApiError(400, "All fiels are compulsary or required") // Api error ka object bana liya 
     } // 2 tasks are done 
@@ -54,22 +54,22 @@ const registerUser = asyncHandler(async (req, res) => {
 
     // check if user already exists : username and email
     const existedUser = await User.findOne({
-        $or: [{ username }, { email }]
+        $or: [{ username }, { email }] //  ya to email ya user dono me kuch bhi mil gya to error denge
     });
      
     // findOne is used to find the first user   
-     // Hamne directly User jo ki ek model h database me usse hi puch liya ki does these exists 
-     // and $or ke thorugh multiple checks le sakte hain
+    // Hamne directly User jo ki ek model h database me usse hi puch liya ki does these exists 
+    // and $or ke thorugh multiple checks le sakte hain
 
     if(existedUser) {
         throw new ApiError(409, "User with email or username already exists!")
      }
 
      // check for images, check for avatar 
-    //  1️⃣ req.files
+    //  1️⃣ req.files 
     // When you send files (like images) from the frontend — for example through a form using multipart/form-data — the middleware multer handles them and attaches them to the request object (req).
     const avatarLocalPath = req.files?.avatar?.[0]?.path;
-    const coverImageLocalPath = req.files?.coverImage?.[0]?.path; // isse local path milega jaha ovver image uplaoded hain on our server 
+    const coverImageLocalPath = req.files?.coverImage?.[0]?.path; // isse local path milega jaha cover image uplaoded hain on our server 
     // 2️⃣ req.files?.avatar
     // The ?. is optional chaining — it means “only try to access this if it exists”.
     // So req.files?.avatar means:
@@ -154,6 +154,7 @@ const loginUser = asyncHandler(async(req, res) => {
      const {accessToken, refreshToken} = await generateAccessAndRefreshTokenss(user._id) 
 
      //NOW WE DONT WANT KI USER KO PASSWORD AND REFRESH TOKEN MILE 
+     // ya to phele vale user ko update kar do or dubara id ke thorough access karlo kyuki pehle vale me ab refresh token and access token add kiya h  
      const logidInUser = await User.findById(user._id).select("-password -refreshToken")
 
      // send cookie 
@@ -189,6 +190,8 @@ const logoutUser = asyncHandler(async(req, res) => {
  //Now we have the access of req.user
 //  req.user._id
 
+//logout ke liye kya karunga bas refresh token undefined kar dunga db me taki jab dubara login karega to laya refresh token generate hoga.
+
 User.findByIdAndUpdate(
     await req.user._id,
     {
@@ -196,7 +199,7 @@ User.findByIdAndUpdate(
             refreshToken : undefined
             },
     },   {
-            new : true
+            new : true // means ab jab value access karoge to naya vala access hoga.
         }
     )
 

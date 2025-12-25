@@ -1,7 +1,10 @@
+//Async route ke andar aane wale kisi bhi error ko pakad kar Express ke global error middleware tak pahunchana. 
+//finally baar baar try catch me wrap nahi karna padega.
 const asyncHandler = (requestHandler) => {return (req, res, next) => {
         Promise.resolve(requestHandler(req, res,next)).catch((err) => next(err))
     }
-}
+} // requesthandler likha ya fn ek hi baat h 
+// bas ham promise retrun kar rahe h rather than putra execute karna ki jagah 
 
 // chapter 8 part 
 export {asyncHandler}

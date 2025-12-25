@@ -36,7 +36,7 @@ connectDB() //async function pura hua h to promise bhi return karega
         throw error
        })
 
-       app.listen(process.env.PORT, () => {
+       app.listen(proc  ess.env.PORT, () => {
         console.log(`App is listining on port ${process.env.PORT}`)
        })
     }catch(error){
@@ -46,5 +46,5 @@ connectDB() //async function pura hua h to promise bhi return karega
 })()
 */
 
-// ye ek approach h ki we will use the iffes or chah to functio banake call bhi ker sakte and we have used the async and await as database durse continent me rehta h to response aane me time lagta hain and sabko try actch me bhi wrap up kiya h 
+// ye ek approach h ki we will use the iffes or chah to function banake call bhi ker sakte and we have used the async and await as database durse continent me rehta h to response aane me time lagta hain and sabko try catch me bhi wrap up kiya h 
 

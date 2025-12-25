@@ -42,5 +42,6 @@ const videoSchema = new Schema(
 )
 
 videoSchema.plugin(mongooseAggregatePaginate) //mongoose kuch options aapko deta h ki khudse kuch plugins add karna ka and aggregate framework thoda mongodb me baad me aaya hain to isko plugin ke sath add karte hain
-
+//Ye plugin aggregation queries ke liye page-wise data lana bahut easy bana deta hai.
 export const Video = mongoose.model("Video", videoSchema)
+// Aggregation means processing MongoDB data in multiple steps to filter, group, join, calculate, and sort results, and mongoose-aggregate-paginate-v2 makes paginating those results easy.

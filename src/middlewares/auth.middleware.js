@@ -23,7 +23,7 @@ export const verifyJWT = asyncHandler(async(req, _, next) => {
             throw new ApiError(401, "Invalid access token")
         }
     
-        req.user = user;
+        req.user = user; // kuch bhi naam rakh sakte req.xyz(socho jese req.cookie tha vese req.user bana diya )
         next()
         // ek tarah se tumne ek middlware bana diya jo ki kya kar rha h req me user ek object insert kar rha h like req.user to bas finallly ab tumhare pass access hain user ka user easily logout kara sakte ho 
     } catch (error) {

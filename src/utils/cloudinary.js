@@ -22,7 +22,7 @@ const uploadOnCloudinary = async (localFilePath) => {
     fs.unlinkSync(localFilePath); // now agr succesfully upload ho gyi h To unlink ho jayegi then 
     // Remove the local file after successful upload
     // fs.unlinkSync(localFilePath);
-    return response;
+    return response;// response me tumhe url milega 
   } catch (error) {
     console.error("Cloudinary upload failed:", error);
 
