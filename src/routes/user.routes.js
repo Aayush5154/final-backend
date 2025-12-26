@@ -3,7 +3,13 @@ import {
   registerUser,
   loginUser,
   logoutUser,
-  refreshAceessToken
+  refreshAceessToken,
+  changeCurrentPassword,
+  getCurrentUser,
+  updateAccountDetails,
+  updateUserAvatar,
+  updateUserCoverImage,
+  getUserChannelProfile
 } from "../controllers/user.controllers.js";
 
 import { upload } from "../middlewares/multer.middleware.js";
@@ -24,5 +30,13 @@ router.post(
 router.post("/login", loginUser);
 router.post("/logout", verifyJWT, logoutUser);// verifyJWT middleware h auth.middleware.js joki check kar rha h ki user valid h ki nahi
 router.post("/refresh-token", refreshAceessToken);
+router.post("/change-password", verifyJWT, changeCurrentPassword)
+router.get("/current-user", verifyJWT, getCurrentUser)
+router.patch("/update-account",verifyJWT, updateAccountDetails)
+router.patch("/avatar", verifyJWT, upload.single("avatar"), updateUserAvatar)
+router.patch("/cover-image", verifyJWT, upload.single("cover-image"), updateUserCoverImage)
+//ab kahani chalu hogi kyuki data parms se lenge.
+router.get("/c/:username", verifyJWT, getUserChannelProfile)
+router.get("/history").get(verify)
 
 export default router;
