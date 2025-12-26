@@ -5,6 +5,7 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import jwt from "jsonwebtoken"
 import { response } from "express"
+import mongoose from "mongoose"
 
 const generateAccessAndRefreshTokenss = async (userId) => {
     // user ke through we can easily get user_id 
@@ -182,7 +183,6 @@ const loginUser = asyncHandler(async(req, res) => {
      
 })
 
-
 const logoutUser = asyncHandler(async(req, res) => {
  // now to baat ab esi h ki pehle to frontend se email, username aa rha ha to hamne req.body se user ko access kar liye tha and then database se findout kar liya tha but now ab vese to kar nahi sakte nahi to koi bhi fhir durse usert ko logout kar dega isliye yaha kaam aata h middleware jo ki ham apna custom create kar sakte hain.
  // as jese hi aapne middleware cookie call kiya kia to aap res.cookie kar sakte the similarly req.cookie bhi kar sakte ho to vaha se user ka access mil sakta h req.cookie like this 
@@ -289,7 +289,7 @@ const changeCurrentPassword = asyncHandler(async(req, res) => {
 
 const getCurrentUser = asyncHandler(async(req, res) => {
     return res.status(200)
-    .json(200, req.user, "current user fetched successfully")
+    .json(new ApiResponse(200, req.user, "current user fetched successfully"))
 })
 
 const updateAccountDetails = asyncHandler(async(req, res) => {
@@ -300,7 +300,7 @@ const updateAccountDetails = asyncHandler(async(req, res) => {
         throw new ApiError(400, "All fields are required")
     }
 
-    const user = User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
         req.user?._id,
         {
             $set: {
@@ -374,6 +374,133 @@ const updateUserCoverImage = asyncHandler(async(req, res) => {
     .status(200)
     .json(new ApiResponse(200, user, "Cover Image updated successfully"))
 })
+// todo:
+//old image ko delete karna h 
+const getUserChannelProfile = asyncHandler(async(req, res)=> {
+
+    const {username} = req.params
+
+    if(!username.trim()){
+        throw new ApiError(400, "Username is required")
+    }
+    // aggregate pipeline lagane ke baad arrays aate h hamare pass 
+    const channel = await User.aggregate([
+        {//1st pipeline 
+            $match:{
+                username : username?.toLowerCase()
+            }
+        },
+        {//subscriber 
+            $lookup: {
+                from : "subscriptions",// as lower case me convert ho jati h in plural db me 
+                localField: "_id",// id jo me ab store karanunga 
+                foreignField: "channel",//  yani vaya par kis naam se hain. As subscriber ke liye channel saare documents utna rahe h jisme channel ke naam same hain
+                as: "subscribers"// ab tum kisme store kar rhe ho as subsriber nikal rahe h to usme 
+            }
+        },
+        {// another pipeline for the channel that user is subscribing.
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",// ye common field dhundta h means sabme mera username dhundega 
+                as: "subscriberTo"
+            }
+        },
+        {
+            $addFields: { 
+                subscribersCount: {
+                    $size: "$subscribers"// kyuki ab subcribers bhi ek field h to $use karna padega
+                },
+                channelSubscribedToCount: {
+                    $size: "$subscriberTo"
+                },
+                isSubscribed: {
+                    $cond: {
+                        if: {$in: [req.user?._id, "$subscribers.subscriber"]},// in works in both arrays and object 
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {// ab jo hame response bhejna hain.
+            $project: {
+                fullname: 1,
+                username: 1,
+                subscribersCount: 1,
+                channelSubscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1,
+            }
+        }
+    ])
+
+    console.log(`This is aggregate resobse channel: ${channel}`)
+
+    if(!channel?.length){
+        throw new ApiError(400, "Sucked in pipelining/ Channel doeds not exits")
+    }
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, channel[0], "User channel fetched successfully"))
+
+})
+
+const getWatchHistory = asyncHandler(async(req, res) => {
+    const user = await User.aggregate([
+        {
+            $match:{
+                _id: new Types.ObjectId(req.user._id)
+
+            }
+        },
+        {
+            $lookup: {
+                from: "videos",// from videos 
+                localField: "watchHistory",// ye user model me hain
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        from: "users",
+                        localField: "owner",
+                        foreignField: "_id",
+                        as: "owner",
+                        pipeline: [
+                            {
+                                $project: {// ye data owner ke field me hain ab is array ko sudharna hain
+                                    fullname : 1,
+                                    username : 1,
+                                    avatar : 1
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        $addFields:{
+                            owner: {
+                                $first: "$owner"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ])
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            user[0].getWatchHistory, //as array me multiple chize store hoti hain
+            "Watch history fetched successfully"
+        )
+    )
+})
 
 // next step is creating the route (ye methods kab run honge)
 export {registerUser,
@@ -384,6 +511,8 @@ export {registerUser,
     getCurrentUser,
     updateAccountDetails,
     updateUserAvatar,
-    updateUserCoverImage
+    updateUserCoverImage,
+    getUserChannelProfile,
+    getWatchHistory
 }
 
