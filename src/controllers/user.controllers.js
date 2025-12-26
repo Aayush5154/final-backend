@@ -193,15 +193,16 @@ const logoutUser = asyncHandler(async(req, res) => {
 
 //logout ke liye kya karunga bas refresh token undefined kar dunga db me taki jab dubara login karega to laya refresh token generate hoga.
 
-User.findByIdAndUpdate(
-    await req.user._id,
+await User.findByIdAndUpdate(
+    req.user._id,
     {
-        $set : {
-            refreshToken : undefined
-            },
-    },   {
-            new : true // means ab jab value access karoge to naya vala access hoga.
-        }
+        $unset : {
+            refreshToken : 1
+        },
+    },   
+    {
+        new : true // means ab jab value access karoge to naya vala access hoga.
+    }
     )
 
     const options = {
@@ -230,7 +231,7 @@ const refreshAceessToken = asyncHandler(async(req, res) => {
             throw new ApiError(401, "Invalid refresh token")
         }
     
-        if(incomingrefreshToken !== user._id){
+        if(incomingrefreshToken !== user.user.refreshToken){
             throw new ApiError(401, "Refresh token is expired or used")
         }
     
@@ -255,9 +256,7 @@ const refreshAceessToken = asyncHandler(async(req, res) => {
         )
     } catch (error) {
         throw new ApiError(401, error?.message || "Invalid refresh Token")
-    }
-
-    
+    }  
 })
 
 const changeCurrentPassword = asyncHandler(async(req, res) => {
@@ -280,10 +279,9 @@ const changeCurrentPassword = asyncHandler(async(req, res) => {
     user.password = newPassword
     await user.save({validateBeforeSave: false})
 
-    return response
+    return res
     .status(200)
-    .json(new ApiResponse(200, {}, "Password changed Successfully"))
-
+    .json(new ApiResponse(200, {}, "Password changed Successfully"));
 
 })
 
@@ -305,7 +303,8 @@ const updateAccountDetails = asyncHandler(async(req, res) => {
         {
             $set: {
                 fullname : fullname,
-                email : email
+                email : email,
+                username: username.toLowerCase()
             }
         },
         {new : true}
@@ -348,7 +347,7 @@ const updateUserAvatar = asyncHandler(async(req, res) => {
 
 const updateUserCoverImage = asyncHandler(async(req, res) => {
 
-    const coverImageLocalPath = req.files?.path
+    const coverImageLocalPath = req.files.coverImage[0].path
 
     if(!coverImageLocalPath){
         throw new ApiError(400, "Cover image file is missing")
@@ -356,7 +355,7 @@ const updateUserCoverImage = asyncHandler(async(req, res) => {
 
     const coverImage = await uploadOnCloudinary(coverImageLocalPath)
 
-    if(!coverImage,url){
+    if(!coverImage?.url){
         throw new ApiError(400, "Error in uploading")
     }
 
@@ -416,7 +415,7 @@ const getUserChannelProfile = asyncHandler(async(req, res)=> {
                 },
                 isSubscribed: {
                     $cond: {
-                        if: {$in: [req.user?._id, "$subscribers.subscriber"]},// in works in both arrays and object 
+                        if: {$in: [new mongoose.Types.ObjectId(req.user?._id),"$subscribers.subscriber"]},// in works in both arrays and object 
                         then: true,
                         else: false
                     }
@@ -449,58 +448,59 @@ const getUserChannelProfile = asyncHandler(async(req, res)=> {
 
 })
 
-const getWatchHistory = asyncHandler(async(req, res) => {
-    const user = await User.aggregate([
-        {
-            $match:{
-                _id: new Types.ObjectId(req.user._id)
-
-            }
-        },
-        {
+const getWatchHistory = asyncHandler(async (req, res) => {
+  const user = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(req.user._id)
+      }
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        pipeline: [
+          {
             $lookup: {
-                from: "videos",// from videos 
-                localField: "watchHistory",// ye user model me hain
-                foreignField: "_id",
-                as: "watchHistory",
-                pipeline: [
-                    {
-                        from: "users",
-                        localField: "owner",
-                        foreignField: "_id",
-                        as: "owner",
-                        pipeline: [
-                            {
-                                $project: {// ye data owner ke field me hain ab is array ko sudharna hain
-                                    fullname : 1,
-                                    username : 1,
-                                    avatar : 1
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        $addFields:{
-                            owner: {
-                                $first: "$owner"
-                            }
-                        }
-                    }
-                ]
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    fullname: 1,
+                    username: 1,
+                    avatar: 1
+                  }
+                }
+              ]
             }
-        }
-    ])
+          },
+          {
+            $addFields: {
+              owner: { $first: "$owner" }
+            }
+          }
+        ]
+      }
+    }
+  ]);
 
-    return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200,
-            user[0].getWatchHistory, //as array me multiple chize store hoti hain
-            "Watch history fetched successfully"
-        )
+  if (!user.length) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      user[0].watchHistory,
+      "Watch history fetched successfully"
     )
-})
+  );
+});
 
 // next step is creating the route (ye methods kab run honge)
 export {registerUser,

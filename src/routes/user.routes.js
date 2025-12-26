@@ -9,7 +9,8 @@ import {
   updateAccountDetails,
   updateUserAvatar,
   updateUserCoverImage,
-  getUserChannelProfile
+  getUserChannelProfile,
+  getWatchHistory
 } from "../controllers/user.controllers.js";
 
 import { upload } from "../middlewares/multer.middleware.js";
@@ -34,9 +35,9 @@ router.post("/change-password", verifyJWT, changeCurrentPassword)
 router.get("/current-user", verifyJWT, getCurrentUser)
 router.patch("/update-account",verifyJWT, updateAccountDetails)
 router.patch("/avatar", verifyJWT, upload.single("avatar"), updateUserAvatar)
-router.patch("/cover-image", verifyJWT, upload.single("cover-image"), updateUserCoverImage)
+router.patch("/cover-image", verifyJWT, upload.single("coverImage"), updateUserCoverImage)
 //ab kahani chalu hogi kyuki data parms se lenge.
 router.get("/c/:username", verifyJWT, getUserChannelProfile)
-router.get("/history").get(verify)
+router.get("/history", verifyJWT, getWatchHistory)
 
 export default router;
