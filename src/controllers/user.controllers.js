@@ -161,7 +161,8 @@ const loginUser = asyncHandler(async (req, res) => {
     // send cookie 
     const options = {
         httpOnly: true,
-        secure: true, // by doing these cookies are only modified by the server not by the frontend 
+        secure: true,
+        sameSite: "None"
     }
 
     return res
@@ -206,7 +207,8 @@ const logoutUser = asyncHandler(async (req, res) => {
 
     const options = {
         httpOnly: true,
-        secure: true, // by doing these cookies are only modified by the server not by the frontend 
+        secure: true,
+        sameSite: "None"
     }
 
     return res
@@ -237,7 +239,8 @@ const refreshAceessToken = asyncHandler(async (req, res) => {
         // Now ab to naya generate karlo
         const options = {
             httpOnly: true,
-            secure: true
+            secure: true,
+            sameSite: "None"
         }
 
         const { accessToken, newrefreshToken } = await generateAccessAndRefreshTokenss(user._id)
