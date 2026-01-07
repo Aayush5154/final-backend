@@ -1,7 +1,7 @@
 // Backend/src/middlewares/auth.optional.middleware.js
 
 import jwt from "jsonwebtoken";
-import { User } from "../models/user.model.js";
+import { User } from "../models/user.models.js";
 
 // This middleware is almost identical to verifyJWT, but it NEVER throws an error.
 export const verifyJWTOptional = async (req, res, next) => {
@@ -21,6 +21,6 @@ export const verifyJWTOptional = async (req, res, next) => {
     } catch (error) {
         // If the token is invalid/expired, just ignore it and proceed.
     }
-    
+
     return next(); // Always proceed to the next step.
 };

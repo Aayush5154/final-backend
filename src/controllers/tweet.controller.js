@@ -2,84 +2,83 @@ import mongoose, { isValidObjectId } from "mongoose";
 
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { Tweet } from "../models/tweet.models.js";
-import ApiError from "../utils/ApiError.js";
-import ApiResponse from "../utils/ApiReponse.js";
-import { json } from "express";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 
-export const createTweet = asyncHandler(async(req, res) => {
-    const {content} = req.body
+export const createTweet = asyncHandler(async (req, res) => {
+    const { content } = req.body
 
     const userId = req.user._id
 
-    if(!content.trim()){
+    if (!content.trim()) {
         throw new ApiError(400, "Content field is required")
     }
 
-    if(!userId){
+    if (!userId) {
         throw new ApiError(400, "User not found")
     }
 
     const tweet = await Tweet.create({
         content,
-        owner : userId
+        owner: userId
     })
 
     return res
-    .status(201)
-    .json(new ApiResponse(201, "tweet created successfully...", tweet))
+        .status(201)
+        .json(new ApiResponse(201, "tweet created successfully...", tweet))
 })
 
-export const  getUserTweetsById = asyncHandler(async (req, res) => {
+export const getUserTweets = asyncHandler(async (req, res) => {
 
     const userId = req.user?._id
 
-    if(!userId){
+    if (!userId) {
         throw new ApiError(404, "user not found")
     }
 
-    const tweet = await tweet.aggregate([
+    const tweets = await Tweet.aggregate([
         {
-            $match : {
-                owner : new mongoose.Types.ObjectId(userId)
+            $match: {
+                owner: new mongoose.Types.ObjectId(userId)
             }
         },
         {
-            $lookup : {
-                from : " user",
+            $lookup: {
+                from: "users",
                 localField: "owner",
                 foreignField: "_id",
                 as: "tweetsDetails",
             },
         },
         {
-            $unwind : "$tweetsDetails"  
+            $unwind: "$tweetsDetails"
         },
         {
-            $project : {
-                username : "$tweetsDetails.username",
-                createdAt : 1,
-                updatedAt : 1,
-                content : 1,
+            $project: {
+                username: "$tweetsDetails.username",
+                createdAt: 1,
+                updatedAt: 1,
+                content: 1,
             },
         },
     ]);
 
-    if(!tweet){
+    if (!tweets || tweets.length === 0) {
         throw new ApiError(404, "Tweet not found")
     }
 
     return res
-    .status(200),
-    json(new ApiResponse(200, "tweets fetched successfully!!"))
+        .status(200)
+        .json(new ApiResponse(200, tweets, "tweets fetched successfully!!"))
 
 })
 
-export const updateTweetById = asyncHandler(async ( req, res) => {
+export const updateTweet = asyncHandler(async (req, res) => {
     const { tweetId } = req.params
-    const { content } =req.body
+    const { content } = req.body
 
     if (!content.trim()) {
-    throw new ApiError(400, "Content field is required");
+        throw new ApiError(400, "Content field is required");
     }
     if (!mongoose.Types.ObjectId.isValid(tweetId)) {
         throw new ApiError(400, "Invalid tweet ID");
@@ -88,16 +87,16 @@ export const updateTweetById = asyncHandler(async ( req, res) => {
     const tweet = await Tweet.findByIdAndUpdate(
         tweetId,
         { content },
-        {new : true}
+        { new: true }
     );
 
-    if(! tweet ){
+    if (!tweet) {
         throw new ApiError(404, "Tweet not found")
     }
 
     return res
-    .status(200)
-    .json(new ApiResponse(200, "updated tweet successfully!!", tweet))
+        .status(200)
+        .json(new ApiResponse(200, "updated tweet successfully!!", tweet))
 });
 
 export const deleteTweet = asyncHandler(async (req, res) => {

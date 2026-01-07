@@ -33,7 +33,7 @@ router.post("/logout", verifyJWT, logoutUser);// verifyJWT middleware h auth.mid
 router.post("/refresh-token", refreshAceessToken);
 router.post("/change-password", verifyJWT, changeCurrentPassword)
 router.get("/current-user", verifyJWT, getCurrentUser)
-router.patch("/update-account",verifyJWT, updateAccountDetails)
+router.patch("/update-account", verifyJWT, updateAccountDetails)
 router.patch("/avatar", verifyJWT, upload.single("avatar"), updateUserAvatar)
 router.patch("/cover-image", verifyJWT, upload.single("coverImage"), updateUserCoverImage)
 //ab kahani chalu hogi kyuki data parms se lenge.
