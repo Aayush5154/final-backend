@@ -48,7 +48,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
                 {
                     $project: {
                         username: 1,
-                        "avatar.url": 1
+                        avatar: 1
                     }
                 }
             ]
@@ -205,7 +205,7 @@ const getVideoById = asyncHandler(async (req, res) => {
                     {
                         $project: {
                             username: 1,
-                            "avatar.url": 1,
+                            avatar: 1,
                             subscribersCount: 1,
                             isSubscribed: 1
                         }
@@ -255,6 +255,19 @@ const getVideoById = asyncHandler(async (req, res) => {
     if (req.user && videoDoc.owner.toString() !== req.user._id.toString()) {
         videoDoc.views += 1;
         await videoDoc.save({ validateBeforeSave: false });
+    }
+
+    // Add to watch history if user is authenticated
+    if (req.user) {
+        await User.findByIdAndUpdate(
+            req.user._id,
+            {
+                $addToSet: { // Use addToSet to avoid duplicates, or $push if you want chronological history with duplicates
+                    watchHistory: videoId
+                }
+            },
+            { new: true }
+        );
     }
 
     return res

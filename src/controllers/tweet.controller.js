@@ -56,6 +56,7 @@ export const getUserTweets = asyncHandler(async (req, res) => {
         {
             $project: {
                 username: "$tweetsDetails.username",
+                avatar: "$tweetsDetails.avatar",
                 createdAt: 1,
                 updatedAt: 1,
                 content: 1,

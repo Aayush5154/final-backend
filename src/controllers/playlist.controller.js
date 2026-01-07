@@ -94,7 +94,14 @@ export const getPlaylistById = asyncHandler(async (req, res) => {
     }
 
     const playlist = await Playlist.findById(playlistId)
-        .populate("owner", "username fullname avatar");
+        .populate("owner", "username fullname avatar")
+        .populate({
+            path: "videos",
+            populate: {
+                path: "owner",
+                select: "username fullname avatar"
+            }
+        });
 
     if (!playlist) throw new ApiError(404, "Playlist not found");
 
