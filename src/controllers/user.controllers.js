@@ -393,8 +393,11 @@ const getUserChannelProfile = asyncHandler(async(req, res)=> {
             $lookup: {
                 from : "subscriptions",// as lower case me convert ho jati h in plural db me 
                 localField: "_id",// id jo me ab store karanunga 
-                foreignField: "channel",//  yani vaya par kis naam se hain. As subscriber ke liye channel saare documents utna rahe h jisme channel ke naam same hain
+                foreignField: "channel",//  yani vaya par kis naam se hain. As subscriber ke liye channel saare documents utha rahe h jisme channel ke naam same hain.
                 as: "subscribers"// ab tum kisme store kar rhe ho as subsriber nikal rahe h to usme 
+                // is channel ke _id se jitne bhi subscriptions moilte hain unko uthao or subscribers array kme daal do 
+                // subscriptions collection me jao Jaha channel = mera _id and Wo saare documents subscribers array me daal do
+                //localField batata hai ki current collection ka kaunsa field dusri collection ke field se compare hoga. Yahan _id isliye hai kyunki channel ki identity _id se hoti hai.
             }
         },
         {// another pipeline for the channel that user is subscribing.
