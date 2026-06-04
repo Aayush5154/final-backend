@@ -22,11 +22,11 @@ const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(
       null,
-      path.resolve(process.cwd(), "public/temp")
+      path.resolve(process.cwd(), "public/temp") // process.cwd tell ki current project root folder 
     );
   },
   filename: function (req, file, cb) {
-    cb(null, file.originalname);
+    cb(null, Date.now() + file.originalname);
   },
 });
 
