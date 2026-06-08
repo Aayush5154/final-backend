@@ -136,10 +136,12 @@ const loginUser = asyncHandler(async (req, res) => {
     }
 
     // finding the user 
+    const lowerCaseUsername = username ? username.toLowerCase() : undefined;
 
     const user = await User.findOne({
-        $or: [{ username }, { email }]
+        $or: [{ username: lowerCaseUsername }, { email }]
     })
+
 
     if (!user) {
         throw new ApiError(404, "User does not exits")
@@ -243,7 +245,7 @@ const refreshAceessToken = asyncHandler(async (req, res) => {
             sameSite: "None"
         }
 
-        const { accessToken, newrefreshToken } = await generateAccessAndRefreshTokenss(user._id)
+        const { accessToken, refreshToken: newrefreshToken } = await generateAccessAndRefreshTokenss(user._id)
 
         return res
             .status(200)
