@@ -67,11 +67,11 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     // check for images, check for avatar 
-    //  1️⃣ req.files 
+    //  1️req.files 
     // When you send files (like images) from the frontend — for example through a form using multipart/form-data — the middleware multer handles them and attaches them to the request object (req).
     const avatarLocalPath = req.files?.avatar?.[0]?.path;
     const coverImageLocalPath = req.files?.coverImage?.[0]?.path; // isse local path milega jaha cover image uplaoded hain on our server 
-    // 2️⃣ req.files?.avatar
+    // 2️req.files?.avatar
     // The ?. is optional chaining — it means “only try to access this if it exists”.
     // So req.files?.avatar means:
     // “If req.files exists, get the property avatar, otherwise return undefined.”
