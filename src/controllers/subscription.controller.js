@@ -56,25 +56,34 @@ const toggleSubscription = asyncHandler(async (req, res) => {
 })
 
 const getUserChannelSubscribers = asyncHandler(async (req, res) => {
-    const { channelId } = req.params
+    const { channelId } = req.params;
 
     if (!isValidObjectId(channelId)) {
-        throw new ApiError(400, "Invalid channel ID")
+        throw new ApiError(400, "Invalid channel ID");
     }
 
-    // Check if channel exists
-    const channel = await User.findById(channelId)
+    const channel = await User.findById(channelId);
+
     if (!channel) {
-        throw new ApiError(404, "Channel not found")
+        throw new ApiError(404, "Channel not found");
     }
 
-    const page = parseInt(req.query.page) || 1
-    const limit = parseInt(req.query.limit) || 10
-    const skip = (page - 1) * limit
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
     const subscribers = await Subscription.aggregate([
         {
             $match: { channel: new mongoose.Types.ObjectId(channelId) }
+        },
+        {
+            $sort: { createdAt: -1 }
+        },
+        {
+            $skip: skip
+        },
+        {
+            $limit: limit
         },
         {
             $lookup: {
@@ -94,22 +103,20 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
             }
         },
         {
-            $project: {
-                subscriberDetails: 0,
-                channel: 0
+            $addFields: {
+                subscriberDetails: { $first: "$subscriberDetails" }
             }
         },
         {
-            $sort: { createdAt: -1 }
-        },
-        {
-            $skip: skip
-        },
-        {
-            $limit: limit
+            $project: {
+                _id: 1,
+                createdAt: 1,
+                subscriberDetails: 1
+            }
         }
-    ])
-    const totalSubscribers = await Subscription.countDocuments({ channel: channelId })
+    ]);
+
+    const totalSubscribers = await Subscription.countDocuments({ channel: channelId });
 
     return res.status(200).json(
         new ApiResponse(200, {
@@ -127,8 +134,8 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
                 pages: Math.ceil(totalSubscribers / limit)
             }
         }, "Channel subscribers retrieved successfully")
-    )
-})
+    );
+});
 
 const getSubscribedChannels = asyncHandler(async (req, res) => {
     const { subscriberId } = req.params
