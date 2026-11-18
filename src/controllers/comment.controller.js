@@ -6,6 +6,8 @@ import { Notification } from "../models/notification.models.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
+import { emitNotification } from "../socket/notifications.js"
+import { emitToVideo } from "../socket/index.js"
 
 const getVideoComments = asyncHandler(async (req, res) => {
     //TODO: get all comments for a video
@@ -113,26 +115,30 @@ const addComment = asyncHandler(async (req, res) => {
 
     if (parentComment) {
         if (parentComment.owner.toString() !== req.user._id.toString()) {
-            await Notification.create({
+            const notification = await Notification.create({
                 recipient: parentComment.owner,
                 sender: req.user._id,
                 type: "reply",
                 video: videoId,
                 comment: comment._id
             })
+            emitNotification(notification)
         }
     } else if (video.owner.toString() !== req.user._id.toString()) {
-        await Notification.create({
+        const notification = await Notification.create({
             recipient: video.owner,
             sender: req.user._id,
             type: "comment",
             video: videoId,
             comment: comment._id
         })
+        emitNotification(notification)
     }
 
     // ab yaha sirf ek single user ke baar me baat ho rhi or vo bhi hame pata h kon hain.
     const createdComment = await Comment.findById(comment._id).populate("owner", "username fullname avatar")
+
+    emitToVideo(videoId, "comment:new", createdComment)
 
     return res
         .status(201)
@@ -173,6 +179,8 @@ const updateComment = asyncHandler(async (req, res) => {
         { new: true }
     ).populate("owner", "username fullname avatar")
 
+    emitToVideo(comment.video, "comment:updated", updatedContent)
+
     return res.
         status(200)
         .json(new ApiResponse(200, updatedContent, "Comment updated successfully"))
@@ -197,6 +205,11 @@ const deleteComment = asyncHandler(async (req, res) => {
     }// vese to pehle bhi jwtVerify kar liya h par still 
 
     await comment.deleteOne()
+
+    emitToVideo(comment.video, "comment:deleted", {
+        _id: commentId.toString(),
+        video: comment.video.toString()
+    })
 
     return res
         .status(200)

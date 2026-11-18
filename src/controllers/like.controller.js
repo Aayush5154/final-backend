@@ -7,6 +7,8 @@ import { Notification } from "../models/notification.models.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
+import { emitNotification } from "../socket/notifications.js"
+import { emitToTweetViewers } from "../socket/index.js"
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
     const { videoId } = req.params
@@ -46,12 +48,13 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
         message = "Video liked successfully"
 
         if (video.owner.toString() !== userId.toString()) {
-            await Notification.create({
+            const notification = await Notification.create({
                 recipient: video.owner,
                 sender: userId,
                 type: "like",
                 video: video._id
             })
+            emitNotification(notification)
         }
     }
 
@@ -98,13 +101,14 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
         message = "Comment liked successfully"
 
         if (comment.owner.toString() !== userId.toString()) {
-            await Notification.create({
+            const notification = await Notification.create({
                 recipient: comment.owner,
                 sender: userId,
                 type: "like",
                 video: comment.video,
                 comment: comment._id
             })
+            emitNotification(notification)
         }
     }
 
@@ -152,8 +156,17 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
         message = "Tweet liked successfully"
     }
 
+    const likesCount = await Like.countDocuments({ tweet: tweetId })
+
+    emitToTweetViewers("tweet:like-updated", {
+        tweetId: tweetId.toString(),
+        likesCount,
+        userId: userId.toString(),
+        isLiked
+    })
+
     return res.status(200).json(
-        new ApiResponse(200, { isLiked }, message)
+        new ApiResponse(200, { isLiked, likesCount }, message)
     )
 })
 

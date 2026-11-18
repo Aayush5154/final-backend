@@ -1,9 +1,11 @@
 // require('dotenv').config({path : './env'})
 import dotenv from "dotenv" //sabse pehle dotenv import karte hain as jese hi pehli file upload ho saare environment variables available ho jaaye. 
+import http from "http"
 import connectDB from "./db/index.js";
 // import mongoose from "mongoose";
 // import {DB_NAME} from "./contants"
 import { app } from "./app.js"
+import { initSocket } from "./socket/index.js"
 
 dotenv.config({
     path: './.env'
@@ -11,12 +13,15 @@ dotenv.config({
 
 connectDB() //async function pura hua h to promise bhi return karega 
 .then(() => {
-    app.on("error", (error) => {
+    const server = http.createServer(app)
+    initSocket(server)
+
+    server.on("error", (error) => {
        console.log("Error: ", error);
        throw error
     })//ek event error ke liye listen kar rahe hain and then message print kara rahe hain
 
-    app.listen(process.env.PORT || 8000, () => {
+    server.listen(process.env.PORT || 8000, () => {
         console.log(`Server is running at port : ${process.env.PORT}`);
     })
 })

@@ -10,6 +10,8 @@ import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
 import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js"
+import { emitNotifications } from "../socket/notifications.js"
+import { emitToUser } from "../socket/index.js"
 
 const getAllVideos = asyncHandler(async (req, res) => {
 
@@ -149,7 +151,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
             .lean()
 
         if (subscribers.length) {
-            await Notification.insertMany(
+            const notifications = await Notification.insertMany(
                 subscribers.map((subscriber) => ({
                     recipient: subscriber.subscriber,
                     sender: video.owner,
@@ -158,6 +160,18 @@ const publishAVideo = asyncHandler(async (req, res) => {
                 })),
                 { ordered: false }
             )
+
+            emitNotifications(notifications)
+
+            const populatedVideo = await Video.findById(video._id)
+                .populate("owner", "username fullname avatar")
+                .lean()
+
+            if (populatedVideo) {
+                subscribers.forEach((subscriber) => {
+                    emitToUser(subscriber.subscriber, "feed:new-video", populatedVideo)
+                })
+            }
         }
     } catch (error) {
         console.error("Failed to notify subscribers about new video:", error)
