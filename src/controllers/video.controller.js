@@ -12,6 +12,7 @@ import { asyncHandler } from "../utils/asyncHandler.js"
 import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js"
 import { emitNotifications } from "../socket/notifications.js"
 import { emitToUser } from "../socket/index.js"
+import { requestInsights } from "../services/insights.service.js"
 
 const getAllVideos = asyncHandler(async (req, res) => {
 
@@ -176,6 +177,11 @@ const publishAVideo = asyncHandler(async (req, res) => {
     } catch (error) {
         console.error("Failed to notify subscribers about new video:", error)
     }
+
+    // Transcription + AI analysis run asynchronously so uploads stay fast
+    requestInsights(video).catch((error) => {
+        console.error("Failed to queue AI insights:", error.message)
+    })
 
     return res
         .status(201)

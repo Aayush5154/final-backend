@@ -6,6 +6,7 @@ import connectDB from "./db/index.js";
 // import {DB_NAME} from "./contants"
 import { app } from "./app.js"
 import { initSocket } from "./socket/index.js"
+import { markInterruptedInsights } from "./services/insights.service.js"
 
 dotenv.config({
     path: './.env'
@@ -15,6 +16,9 @@ connectDB() //async function pura hua h to promise bhi return karega
 .then(() => {
     const server = http.createServer(app)
     initSocket(server)
+    markInterruptedInsights().catch((error) => {
+        console.error("Failed to reset interrupted insight jobs:", error.message)
+    })
 
     server.on("error", (error) => {
        console.log("Error: ", error);
