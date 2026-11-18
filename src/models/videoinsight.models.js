@@ -42,6 +42,10 @@ const videoInsightSchema = new Schema(
             shortSummary: { type: String, default: "" },
             detailedSummary: { type: String, default: "" },
             takeaways: { type: [String], default: [] }
+        }),
+        embedding: stageSchema({
+            model: { type: String, default: "" },
+            chunkCount: { type: Number, default: 0 }
         })
     },
     { timestamps: true }

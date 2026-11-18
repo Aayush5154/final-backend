@@ -2,6 +2,7 @@ import { Video } from "../models/video.models.js"
 import { VideoInsight } from "../models/videoinsight.models.js"
 import { transcribeVideo } from "./transcription.service.js"
 import { generateVideoAnalysis } from "./gemini.service.js"
+import { indexVideoTranscript } from "./rag.service.js"
 import { emitToUser, emitToVideo } from "../socket/index.js"
 
 // Single-process FIFO queue; MongoDB statuses stay the source of truth and
@@ -107,6 +108,12 @@ const processVideo = async (videoId) => {
         console.error(`Analysis failed for video ${videoId}:`, error.message)
         await failStage(videoId, "analysis", error)
     }
+
+    try {
+        await indexVideoTranscript(videoId)
+    } catch (error) {
+        console.error(`Transcript indexing failed for video ${videoId}:`, error.message)
+    }
 }
 
 const drainQueue = async () => {
@@ -148,7 +155,9 @@ const requestInsights = async (video, { force = false } = {}) => {
                     "transcription.status": "pending",
                     "transcription.error": "",
                     "analysis.status": "pending",
-                    "analysis.error": ""
+                    "analysis.error": "",
+                    "embedding.status": "pending",
+                    "embedding.error": ""
                 }
             },
             { new: true }
@@ -169,7 +178,7 @@ const requestInsights = async (video, { force = false } = {}) => {
 // Jobs interrupted by a restart are marked failed so they can be retried
 // instead of staying stuck in "processing" forever.
 const markInterruptedInsights = async () => {
-    await Promise.all(["transcription", "analysis"].map((stage) =>
+    await Promise.all(["transcription", "analysis", "embedding"].map((stage) =>
         VideoInsight.updateMany(
             { [`${stage}.status`]: "processing" },
             { $set: { [`${stage}.status`]: "failed", [`${stage}.error`]: "Processing interrupted by a server restart. Please retry." } }
