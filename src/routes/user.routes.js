@@ -10,7 +10,9 @@ import {
   updateUserAvatar,
   updateUserCoverImage,
   getUserChannelProfile,
-  getWatchHistory
+  getWatchHistory,
+  removeWatchHistoryEntry,
+  clearWatchHistory
 } from "../controllers/user.controllers.js";
 
 import { upload } from "../middlewares/multer.middleware.js";
@@ -39,5 +41,7 @@ router.patch("/cover-image", verifyJWT, upload.single("coverImage"), updateUserC
 //ab kahani chalu hogi kyuki data parms se lenge.
 router.get("/c/:username", verifyJWT, getUserChannelProfile)
 router.get("/history", verifyJWT, getWatchHistory)
+router.delete("/history/:videoId", verifyJWT, removeWatchHistoryEntry)
+router.delete("/history", verifyJWT, clearWatchHistory)
 
 export default router;

@@ -3,6 +3,8 @@ import { User } from "../models/user.models.js"
 import { Video } from "../models/video.models.js"
 import { Subscription } from "../models/subscription.models.js"
 import { Like } from "../models/like.models.js"
+import { Comment } from "../models/comment.models.js"
+import { VideoDailyStat } from "../models/videodailystat.models.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
@@ -115,6 +117,144 @@ export const getChannelStats = asyncHandler(async (req, res) => {
 
     return res.status(200).json(
         new ApiResponse(200, finalStats, "Channel stats retrieved successfully")
+    )
+})
+
+export const getChannelAnalytics = asyncHandler(async (req, res) => {
+    const channelId = req.user?._id
+    const channelObjectId = new mongoose.Types.ObjectId(channelId)
+
+    const days = Math.min(Math.max(parseInt(req.query.days) || 7, 1), 30)
+    const weeks = Math.min(Math.max(parseInt(req.query.weeks) || 4, 1), 12)
+    const totalDays = days + (weeks - 1) * 7
+
+    const today = new Date()
+    today.setUTCHours(0, 0, 0, 0)
+
+    const since = new Date(today)
+    since.setUTCDate(since.getUTCDate() - (totalDays - 1))
+    const sinceKey = since.toISOString().slice(0, 10)
+
+    const videos = await Video.find({ owner: channelObjectId }).select("_id views").lean()
+    const videoIds = videos.map((video) => video._id)
+
+    const [statRows, likeRows, commentRows, watchTimeRows, totalLikes, totalComments] = await Promise.all([
+        VideoDailyStat.aggregate([
+            { $match: { owner: channelObjectId, date: { $gte: sinceKey } } },
+            {
+                $group: {
+                    _id: "$date",
+                    views: { $sum: "$views" },
+                    watchTime: { $sum: "$watchTime" }
+                }
+            }
+        ]),
+        videoIds.length
+            ? Like.aggregate([
+                { $match: { video: { $in: videoIds }, createdAt: { $gte: since } } },
+                {
+                    $group: {
+                        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                        count: { $sum: 1 }
+                    }
+                }
+            ])
+            : [],
+        videoIds.length
+            ? Comment.aggregate([
+                { $match: { video: { $in: videoIds }, createdAt: { $gte: since } } },
+                {
+                    $group: {
+                        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                        count: { $sum: 1 }
+                    }
+                }
+            ])
+            : [],
+        VideoDailyStat.aggregate([
+            { $match: { owner: channelObjectId } },
+            { $group: { _id: null, watchTime: { $sum: "$watchTime" } } }
+        ]),
+        videoIds.length ? Like.countDocuments({ video: { $in: videoIds } }) : 0,
+        videoIds.length ? Comment.countDocuments({ video: { $in: videoIds } }) : 0
+    ])
+
+    const dayMap = new Map()
+    for (let i = totalDays - 1; i >= 0; i -= 1) {
+        const day = new Date(today)
+        day.setUTCDate(today.getUTCDate() - i)
+        const key = day.toISOString().slice(0, 10)
+        dayMap.set(key, { date: key, views: 0, watchTime: 0, likes: 0, comments: 0 })
+    }
+
+    statRows.forEach((row) => {
+        const entry = dayMap.get(row._id)
+        if (entry) {
+            entry.views = row.views
+            entry.watchTime = row.watchTime
+        }
+    })
+
+    likeRows.forEach((row) => {
+        const entry = dayMap.get(row._id)
+        if (entry) entry.likes = row.count
+    })
+
+    commentRows.forEach((row) => {
+        const entry = dayMap.get(row._id)
+        if (entry) entry.comments = row.count
+    })
+
+    const dailyList = Array.from(dayMap.values())
+    const todayMs = today.getTime()
+
+    const weeklyMap = new Map()
+    dailyList.forEach((day) => {
+        const daysAgo = Math.floor((todayMs - new Date(`${day.date}T00:00:00Z`).getTime()) / 86400000)
+        const bucket = Math.floor(daysAgo / 7)
+
+        if (bucket >= weeks) return
+
+        if (!weeklyMap.has(bucket)) {
+            weeklyMap.set(bucket, {
+                weekStart: day.date,
+                views: 0,
+                watchTime: 0,
+                likes: 0,
+                comments: 0
+            })
+        }
+
+        const week = weeklyMap.get(bucket)
+        week.weekStart = day.date
+        week.views += day.views
+        week.watchTime += day.watchTime
+        week.likes += day.likes
+        week.comments += day.comments
+    })
+
+    const weekly = Array.from(weeklyMap.entries())
+        .sort((a, b) => b[0] - a[0])
+        .map(([, week]) => week)
+
+    const totals = {
+        views: videos.reduce((sum, video) => sum + (video.views || 0), 0),
+        watchTime: watchTimeRows[0]?.watchTime || 0,
+        likes: totalLikes,
+        comments: totalComments,
+        videos: videos.length
+    }
+
+    return res.status(200).json(
+        new ApiResponse(
+            200,
+            {
+                totals,
+                daily: dailyList.slice(-days),
+                weekly
+            },
+            "Channel analytics fetched successfully"
+        )
     )
 })
 

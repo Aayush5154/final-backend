@@ -2,6 +2,7 @@ import mongoose from "mongoose"
 import { Video } from "../models/video.models.js"
 import { User } from "../models/user.models.js"
 import { Comment } from "../models/comment.models.js"
+import { Notification } from "../models/notification.models.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
@@ -28,7 +29,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
         {
             $lookup: {
                 from: "users",
-                localFields: "owner",
+                localField: "owner",
                 foreignField: "_id",
                 as: "owner",
                 pipeline: [
@@ -66,7 +67,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
 
 const addComment = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    const { content } = req.body
+    const { content, parent } = req.body
 
     if (!content || content.trim().length === 0) {
         throw new ApiError(400, "Comment content is required")
@@ -87,15 +88,49 @@ const addComment = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Video not found")
     }
 
+    let parentComment = null
+    if (parent) {
+        if (!mongoose.isValidObjectId(parent)) {
+            throw new ApiError(400, "Invalid parent comment Id")
+        }
+
+        parentComment = await Comment.findById(parent)
+        if (!parentComment || parentComment.video.toString() !== videoId) {
+            throw new ApiError(400, "Parent comment does not belong to this video")
+        }
+    }
+
     const comment = await Comment.create({
         content: content.trim(),
         video: videoId,
-        owner: req.user?._id
+        owner: req.user?._id,
+        parent: parentComment?._id || null
     })// sirf owner and video ki id store hui h pure objects nahi 
 
     if (!comment) {
         throw new ApiError(500, "Failed to create comment")
     }
+
+    if (parentComment) {
+        if (parentComment.owner.toString() !== req.user._id.toString()) {
+            await Notification.create({
+                recipient: parentComment.owner,
+                sender: req.user._id,
+                type: "reply",
+                video: videoId,
+                comment: comment._id
+            })
+        }
+    } else if (video.owner.toString() !== req.user._id.toString()) {
+        await Notification.create({
+            recipient: video.owner,
+            sender: req.user._id,
+            type: "comment",
+            video: videoId,
+            comment: comment._id
+        })
+    }
+
     // ab yaha sirf ek single user ke baar me baat ho rhi or vo bhi hame pata h kon hain.
     const createdComment = await Comment.findById(comment._id).populate("owner", "username fullname avatar")
 

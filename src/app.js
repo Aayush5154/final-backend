@@ -29,6 +29,9 @@ import subscriptionRouter from "./routes/subscription.routes.js"
 import tweetRouter from "./routes/tweet.routes.js"
 import dashboardRouter from "./routes/dashboard.routes.js"
 import healthcheckRouter from "./routes/healthcheck.routes.js"
+import watchLaterRouter from "./routes/watchlater.routes.js"
+import progressRouter from "./routes/progress.routes.js"
+import notificationRouter from "./routes/notification.routes.js"
 
 //routes declaration
 // app.get (ye pehle karte the jabtak router import nahi kiya tha ab router ko alg ker diya h to usko laane ke middleware laana padega)
@@ -41,5 +44,20 @@ app.use("/api/v1/subscriptions", subscriptionRouter)
 app.use("/api/v1/tweets", tweetRouter)
 app.use("/api/v1/dashboard", dashboardRouter)
 app.use("/api/v1/healthcheck", healthcheckRouter)
+app.use("/api/v1/watch-later", watchLaterRouter)
+app.use("/api/v1/progress", progressRouter)
+app.use("/api/v1/notifications", notificationRouter)
+
+// Global error handler so API clients always receive the ApiError status code as JSON
+app.use((err, req, res, next) => {
+    const statusCode = err.statusCode || err.status || 500
+
+    return res.status(statusCode).json({
+        success: false,
+        statusCode,
+        message: err.message || "Internal Server Error",
+        errors: err.errors || []
+    })
+})
 
 export { app }

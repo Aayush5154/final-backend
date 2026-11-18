@@ -1,6 +1,7 @@
 import mongoose, { isValidObjectId } from "mongoose"
 import { User } from "../models/user.models.js"
 import { Subscription } from "../models/subscription.models.js"
+import { Notification } from "../models/notification.models.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
@@ -46,6 +47,12 @@ const toggleSubscription = asyncHandler(async (req, res) => {
         })
         message = "Subscribed successfully!!"
         isSubscribed = true
+
+        await Notification.create({
+            recipient: channelId,
+            sender: req.user?._id,
+            type: "subscription"
+        })
     }
     return res
         .status(200)

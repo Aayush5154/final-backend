@@ -3,6 +3,7 @@ import { Like } from "../models/like.models.js"
 import { Video } from "../models/video.models.js"
 import { Comment } from "../models/comment.models.js"
 import { Tweet } from "../models/tweet.models.js"
+import { Notification } from "../models/notification.models.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
@@ -43,6 +44,15 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
         })
         isLiked = true
         message = "Video liked successfully"
+
+        if (video.owner.toString() !== userId.toString()) {
+            await Notification.create({
+                recipient: video.owner,
+                sender: userId,
+                type: "like",
+                video: video._id
+            })
+        }
     }
 
     return res.status(200).json(
@@ -86,6 +96,16 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
         })
         isLiked = true
         message = "Comment liked successfully"
+
+        if (comment.owner.toString() !== userId.toString()) {
+            await Notification.create({
+                recipient: comment.owner,
+                sender: userId,
+                type: "like",
+                video: comment.video,
+                comment: comment._id
+            })
+        }
     }
 
     return res.status(200).json(

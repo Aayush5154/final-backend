@@ -1,6 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js"
 import { ApiError } from "../utils/ApiError.js"
 import { User } from "../models/user.models.js" // for to check ki user already exits 
+import { WatchHistory } from "../models/watchhistory.models.js"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import jwt from "jsonwebtoken"
@@ -455,57 +456,62 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 })
 
 const getWatchHistory = asyncHandler(async (req, res) => {
-    const user = await User.aggregate([
-        {
-            $match: {
-                _id: new mongoose.Types.ObjectId(req.user._id)
+    const entries = await WatchHistory.find({ owner: req.user?._id })
+        .sort({ watchedAt: -1 })
+        .limit(100)
+        .populate({
+            path: "video",
+            populate: {
+                path: "owner",
+                select: "username fullname avatar"
             }
-        },
-        {
-            $lookup: {
-                from: "videos",
-                localField: "watchHistory",
-                foreignField: "_id",
-                as: "watchHistory",
-                pipeline: [
-                    {
-                        $lookup: {
-                            from: "users",
-                            localField: "owner",
-                            foreignField: "_id",
-                            as: "owner",
-                            pipeline: [
-                                {
-                                    $project: {
-                                        fullname: 1,
-                                        username: 1,
-                                        avatar: 1
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    {
-                        $addFields: {
-                            owner: { $first: "$owner" }
-                        }
-                    }
-                ]
-            }
-        }
-    ]);
+        });
 
-    if (!user.length) {
-        throw new ApiError(404, "User not found");
+    const videos = entries
+        .filter((entry) => entry.video)
+        .map((entry) => ({
+            ...entry.video.toObject(),
+            watchedAt: entry.watchedAt
+        }));
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, videos, "Watch history fetched successfully"));
+});
+
+const removeWatchHistoryEntry = asyncHandler(async (req, res) => {
+    const { videoId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(videoId)) {
+        throw new ApiError(400, "Invalid video ID");
     }
 
-    return res.status(200).json(
-        new ApiResponse(
-            200,
-            user[0].watchHistory,
-            "Watch history fetched successfully"
-        )
-    );
+    const result = await WatchHistory.deleteOne({
+        owner: req.user?._id,
+        video: videoId
+    });
+
+    if (!result.deletedCount) {
+        throw new ApiError(404, "Video not found in watch history");
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "Video removed from watch history"));
+});
+
+const clearWatchHistory = asyncHandler(async (req, res) => {
+    const result = await WatchHistory.deleteMany({ owner: req.user?._id });
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                { deletedCount: result.deletedCount },
+                "Watch history cleared successfully"
+            )
+        );
 });
 
 // next step is creating the route (ye methods kab run honge)
@@ -520,6 +526,8 @@ export {
     updateUserAvatar,
     updateUserCoverImage,
     getUserChannelProfile,
-    getWatchHistory
+    getWatchHistory,
+    removeWatchHistoryEntry,
+    clearWatchHistory
 }
 

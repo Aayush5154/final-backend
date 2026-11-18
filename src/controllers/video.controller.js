@@ -1,6 +1,11 @@
 import mongoose, { isValidObjectId } from "mongoose"
 import { Video } from "../models/video.models.js"
-import { User } from "../models/user.models.js"
+import { Subscription } from "../models/subscription.models.js"
+import { WatchLater } from "../models/watchlater.models.js"
+import { WatchHistory } from "../models/watchhistory.models.js"
+import { WatchProgress } from "../models/watchprogress.models.js"
+import { VideoDailyStat } from "../models/videodailystat.models.js"
+import { Notification } from "../models/notification.models.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
@@ -10,13 +15,10 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
     const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query
 
-    // Build aggregation pipeline
     const pipeline = []
 
-    // Match stage for filtering
     const matchStage = {}
 
-    // If userId is provided, filter by owner
     if (userId) {
         if (!isValidObjectId(userId)) {
             throw new ApiError(400, "Invalid userId")
@@ -140,6 +142,27 @@ const publishAVideo = asyncHandler(async (req, res) => {
         throw new ApiError(500, "Video upload failed please try again");
     }
 
+    // Notify subscribers about the new upload without failing the upload on errors
+    try {
+        const subscribers = await Subscription.find({ channel: video.owner })
+            .select("subscriber")
+            .lean()
+
+        if (subscribers.length) {
+            await Notification.insertMany(
+                subscribers.map((subscriber) => ({
+                    recipient: subscriber.subscriber,
+                    sender: video.owner,
+                    type: "video_upload",
+                    video: video._id
+                })),
+                { ordered: false }
+            )
+        }
+    } catch (error) {
+        console.error("Failed to notify subscribers about new video:", error)
+    }
+
     return res
         .status(201)
         .json(new ApiResponse(201, video, "Video uploaded successfully"));
@@ -250,23 +273,43 @@ const getVideoById = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Video does not exist")
     }
 
-    // Increment views if user is authenticated and is not the owner
     const videoDoc = await Video.findById(videoId);
-    if (req.user && videoDoc.owner.toString() !== req.user._id.toString()) {
-        videoDoc.views += 1;
-        await videoDoc.save({ validateBeforeSave: false });
+    const isOwner = req.user && videoDoc.owner.toString() === req.user._id.toString();
+
+    if (req.user) {
+        // Refresh the entry so history stays ordered by most recent watch
+        await WatchHistory.findOneAndUpdate(
+            { owner: req.user._id, video: videoId },
+            { $set: { watchedAt: new Date() } },
+            { upsert: true, setDefaultsOnInsert: true }
+        );
+
+        video[0].isInWatchLater = Boolean(
+            await WatchLater.exists({ owner: req.user._id, video: videoId })
+        );
+
+        const progress = await WatchProgress.findOne({
+            owner: req.user._id,
+            video: videoId
+        }).select("progress completed");
+
+        video[0].progress = progress?.progress || 0;
+        video[0].isCompleted = progress?.completed || false;
+    } else {
+        video[0].isInWatchLater = false;
+        video[0].progress = 0;
+        video[0].isCompleted = false;
     }
 
-    // Add to watch history if user is authenticated
-    if (req.user) {
-        await User.findByIdAndUpdate(
-            req.user._id,
-            {
-                $addToSet: { // Use addToSet to avoid duplicates, or $push if you want chronological history with duplicates
-                    watchHistory: videoId
-                }
-            },
-            { new: true }
+    // Increment views and daily analytics only for authenticated non-owners
+    if (req.user && !isOwner) {
+        await Video.updateOne({ _id: videoId }, { $inc: { views: 1 } });
+
+        const date = new Date().toISOString().slice(0, 10);
+        await VideoDailyStat.updateOne(
+            { video: videoId, date },
+            { $inc: { views: 1 }, $setOnInsert: { owner: videoDoc.owner } },
+            { upsert: true }
         );
     }
 
