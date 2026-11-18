@@ -412,7 +412,6 @@ const deleteVideo = asyncHandler(async (req, res) => {
     if (video.videoFile) {
         try {
             await deleteFromCloudinary(video.videoFile)
-            console.log("Video file deleted from Cloudinary")
         } catch (error) {
             console.error("Failed to delete video file from Cloudinary:", error)
             // Don't throw error here - continue with database deletion
@@ -423,7 +422,6 @@ const deleteVideo = asyncHandler(async (req, res) => {
     if (video.thumbnail) {
         try {
             await deleteFromCloudinary(video.thumbnail)
-            console.log("Thumbnail deleted from Cloudinary")
         } catch (error) {
             console.error("Failed to delete thumbnail from Cloudinary:", error)
             // Don't throw error here - continue with database deletion
