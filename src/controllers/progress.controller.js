@@ -91,7 +91,27 @@ const getContinueWatching = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, continueWatching, "Continue watching list fetched successfully"))
 })
 
+const removeWatchProgress = asyncHandler(async (req, res) => {
+    const { videoId } = req.params
+    const userId = req.user?._id
+
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video ID")
+    }
+
+    const result = await WatchProgress.deleteOne({ owner: userId, video: videoId })
+
+    if (!result.deletedCount) {
+        throw new ApiError(404, "Video is not in your continue watching list")
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, { removed: true }, "Removed from continue watching"))
+})
+
 export {
     updateWatchProgress,
-    getContinueWatching
+    getContinueWatching,
+    removeWatchProgress
 }
