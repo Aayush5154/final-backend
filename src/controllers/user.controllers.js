@@ -37,7 +37,6 @@ const registerUser = asyncHandler(async (req, res) => {
 
 
     const { fullname, username, email, password } = req.body // froms and json data are present in req.body
-    console.log("email: ", email);
     // if(fullname === ""){
     //     throw new ApiError(400, "fullname is required")
     // } //ese karke saare check kar sakte ho another method 
@@ -443,7 +442,6 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         }
     ])
 
-    console.log(`This is aggregate resobse channel: ${channel}`)
 
     if (!channel?.length) {
         throw new ApiError(400, "Sucked in pipelining/ Channel doeds not exits")
