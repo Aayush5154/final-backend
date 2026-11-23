@@ -205,6 +205,69 @@ const indexVideoTranscript = async (videoId, { force = false } = {}) => {
     }
 }
 
+const getVideoChunkVectors = async (videoIds) => {
+    if (!videoIds.length) return []
+
+    const points = []
+    let offset = null
+
+    while (points.length < 1000) {
+        const body = {
+            filter: {
+                must: [{ key: "videoId", match: { any: videoIds.map(String) } }]
+            },
+            with_payload: true,
+            with_vector: true,
+            limit: Math.min(256, 1000 - points.length)
+        }
+        if (offset) body.offset = offset
+
+        let response
+        try {
+            response = await qdrantRequest(`/collections/${QDRANT_COLLECTION}/points/scroll`, {
+                method: "POST",
+                body: JSON.stringify(body)
+            })
+        } catch (error) {
+            if (error.message.includes("(404)")) return []
+            throw error
+        }
+
+        const batch = response.result?.points || []
+        points.push(...batch)
+        offset = response.result?.next_page_offset
+        if (!offset || !batch.length) break
+    }
+
+    return points
+}
+
+const searchVideoChunks = async (vector, limit = 120) => {
+    let response
+    try {
+        response = await qdrantRequest(`/collections/${QDRANT_COLLECTION}/points/search`, {
+            method: "POST",
+            body: JSON.stringify({
+                vector,
+                limit,
+                with_payload: true
+            })
+        })
+    } catch (error) {
+        if (error.message.includes("(404)")) return []
+        throw error
+    }
+
+    return (response.result || []).map((item) => ({
+        score: item.score,
+        videoId: item.payload?.videoId,
+        chunkIndex: item.payload?.chunkIndex,
+        start: item.payload?.start,
+        end: item.payload?.end,
+        text: item.payload?.text
+    }))
+}
+
 const retrieveTranscriptChunks = async (videoId, question, limit = 5) => {
     const [vector] = await embedTexts([question], "RETRIEVAL_QUERY")
     const result = await qdrantRequest(`/collections/${QDRANT_COLLECTION}/points/search`, {
@@ -227,4 +290,10 @@ const retrieveTranscriptChunks = async (videoId, question, limit = 5) => {
     }))
 }
 
-export { chunkTranscript, indexVideoTranscript, retrieveTranscriptChunks }
+export {
+    chunkTranscript,
+    getVideoChunkVectors,
+    indexVideoTranscript,
+    retrieveTranscriptChunks,
+    searchVideoChunks
+}

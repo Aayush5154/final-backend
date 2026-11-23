@@ -34,6 +34,7 @@ import progressRouter from "./routes/progress.routes.js"
 import notificationRouter from "./routes/notification.routes.js"
 import videoInsightRouter from "./routes/videoinsight.routes.js"
 import videoChatRouter from "./routes/videochat.routes.js"
+import recommendationRouter from "./routes/recommendation.routes.js"
 
 //routes declaration
 // app.get (ye pehle karte the jabtak router import nahi kiya tha ab router ko alg ker diya h to usko laane ke middleware laana padega)
@@ -51,6 +52,7 @@ app.use("/api/v1/progress", progressRouter)
 app.use("/api/v1/notifications", notificationRouter)
 app.use("/api/v1/insights", videoInsightRouter)
 app.use("/api/v1/chat", videoChatRouter)
+app.use("/api/v1/recommendations", recommendationRouter)
 
 // Global error handler so API clients always receive the ApiError status code as JSON
 app.use((err, req, res, next) => {

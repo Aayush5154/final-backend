@@ -25,5 +25,6 @@ commentSchema.plugin(mongooseAggregatePaginate)// ek page me kaha se kaha tak co
 
 commentSchema.index({ video: 1, createdAt: 1 });
 commentSchema.index({ parent: 1 });
+commentSchema.index({ owner: 1, createdAt: -1 });
 
 export const Comment = mongoose.model("Comment", commentSchema)
