@@ -34,6 +34,23 @@ const videoSchema = new Schema(
         owner: {
             type: Schema.Types.ObjectId,
             ref: "User"
+        },
+        hls: {
+            playbackUrl: String,
+            status: {
+                type: String,
+                enum: ["pending", "processing", "ready", "unavailable"]
+            },
+            profile: String,
+            publicId: String,
+            version: Number,
+            variants: [{
+                _id: false,
+                width: Number,
+                height: Number,
+                bandwidth: Number
+            }],
+            checkedAt: Date
         }
     },
     {

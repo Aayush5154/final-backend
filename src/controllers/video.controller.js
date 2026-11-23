@@ -13,6 +13,7 @@ import { uploadOnCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js
 import { emitNotifications } from "../socket/notifications.js"
 import { emitToUser } from "../socket/index.js"
 import { requestInsights } from "../services/insights.service.js"
+import { createHlsMetadata, ensureVideoHls, refreshHlsStatus } from "../services/hls.service.js"
 
 const getAllVideos = asyncHandler(async (req, res) => {
 
@@ -138,7 +139,8 @@ const publishAVideo = asyncHandler(async (req, res) => {
         thumbnail: thumbnail.secure_url,
         views: 0,
         owner: req.user?._id,
-        isPublished: true // default to published for simplicity
+        isPublished: true, // default to published for simplicity
+        hls: createHlsMetadata(videoFile)
     });
 
     if (!video) {
@@ -284,13 +286,22 @@ const getVideoById = asyncHandler(async (req, res) => {
                 duration: 1,
                 owner: 1,
                 likesCount: 1,
-                isLiked: 1
+                isLiked: 1,
+                hls: 1
             }
         }
     ])
 
     if (!video?.length) {
         throw new ApiError(404, "Video does not exist")
+    }
+
+    const hls = await ensureVideoHls(video[0]);
+    if (hls) {
+        video[0].hls = hls;
+        refreshHlsStatus(videoId, hls).catch((error) => {
+            console.error("Failed to refresh HLS status:", error.message)
+        });
     }
 
     const videoDoc = await Video.findById(videoId);
